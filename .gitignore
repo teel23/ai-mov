@@ -21,6 +21,9 @@ dist/
 # Netlify
 .netlify/
 
+# Vercel
+.vercel
+
 # Misc
 .DS_Store
 *.pem
