@@ -157,6 +157,10 @@ export default function ChatInterface() {
     )
   }
 
+  function handleQuickPick(chipText: string) {
+    sendMessage(chipText)
+  }
+
   function handleThumbsRating(messageId: string, rating: 'up' | 'down') {
     setThumbsRatings((prev) => ({
       ...prev,
@@ -264,7 +268,7 @@ export default function ChatInterface() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto"
+              className="flex-1 flex flex-col items-center justify-start px-6 pt-10 pb-8 overflow-y-auto"
             >
               {/* Ambient floating shapes */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -307,6 +311,7 @@ export default function ChatInterface() {
                   <CategoryChips
                     selectedChips={selectedChips}
                     onChipToggle={handleChipToggle}
+                    onQuickPick={handleQuickPick}
                     compact={false}
                   />
                 </motion.div>
@@ -336,6 +341,7 @@ export default function ChatInterface() {
           <CategoryChips
             selectedChips={selectedChips}
             onChipToggle={handleChipToggle}
+            onQuickPick={handleQuickPick}
             compact={true}
           />
         </div>

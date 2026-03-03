@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion'
 import { Star, Tv, Film, BookOpen } from 'lucide-react'
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
 import type { MovieCard as MovieCardType } from '@/lib/types'
 
 const GENRE_COLORS: Record<string, string> = {
@@ -85,6 +87,16 @@ interface MovieCardProps {
 export default function MovieCard({ card, delay = 0 }: MovieCardProps) {
   const gradient = getPosterGradient(card.genres)
   const initials = posterInitials(card.title)
+  const [posterUrl, setPosterUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams({ title: card.title })
+    if (card.year) params.set('year', card.year)
+    fetch(`/api/poster?${params}`)
+      .then((r) => r.json())
+      .then((data) => { if (data.posterUrl) setPosterUrl(data.posterUrl) })
+      .catch(() => {})
+  }, [card.title, card.year])
 
   return (
     <motion.div
@@ -111,27 +123,39 @@ export default function MovieCard({ card, delay = 0 }: MovieCardProps) {
           overflow-hidden
         `}
       >
-        {/* Noise texture overlay */}
-        <div className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
-          }}
-        />
-        {/* Type icon at top */}
-        <div className="absolute top-2 left-0 right-0 flex justify-center">
-          <span className="text-white/30">
-            <TypeIcon type={card.type} />
-          </span>
-        </div>
-        {/* Big initials */}
-        <span className="text-white/20 font-black text-2xl tracking-tight leading-none select-none">
-          {initials}
-        </span>
-        {/* Year at bottom */}
-        {card.year && (
-          <span className="absolute bottom-2 text-white/30 text-[9px] font-mono">
-            {card.year}
-          </span>
+        {posterUrl ? (
+          <Image
+            src={posterUrl}
+            alt={card.title}
+            fill
+            sizes="72px"
+            className="object-cover"
+          />
+        ) : (
+          <>
+            {/* Noise texture overlay */}
+            <div className="absolute inset-0 opacity-20"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
+              }}
+            />
+            {/* Type icon at top */}
+            <div className="absolute top-2 left-0 right-0 flex justify-center">
+              <span className="text-white/30">
+                <TypeIcon type={card.type} />
+              </span>
+            </div>
+            {/* Big initials */}
+            <span className="text-white/20 font-black text-2xl tracking-tight leading-none select-none">
+              {initials}
+            </span>
+            {/* Year at bottom */}
+            {card.year && (
+              <span className="absolute bottom-2 text-white/30 text-[9px] font-mono">
+                {card.year}
+              </span>
+            )}
+          </>
         )}
       </div>
 
