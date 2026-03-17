@@ -36,7 +36,9 @@ export default function ChatInterface() {
   const [input, setInput] = useState('')
   const [selectedChips, setSelectedChips] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
-  const [thumbsRatings, setThumbsRatings] = useState<Record<string, 'up' | 'down'>>({})
+  const [thumbsRatings, setThumbsRatings] = useState<Record<string, 'up' | 'down'>>(() => {
+    try { return JSON.parse(localStorage.getItem('aimov-thumbs') || '{}') } catch { return {} }
+  })
   const [history, setHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
 
@@ -45,6 +47,10 @@ export default function ChatInterface() {
   useEffect(() => {
     setHistory(loadHistory())
   }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem('aimov-thumbs', JSON.stringify(thumbsRatings)) } catch {}
+  }, [thumbsRatings])
 
   // Build the full query from selected chips + manual input
   function buildQuery(): string {
