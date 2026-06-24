@@ -34,8 +34,63 @@ interface RequestBody {
   messages: Array<{ role: string; content: string }>
 }
 
+// --- Simple per-IP rate limiting to cap Claude API spend ---
+// NOTE: this is in-memory and per-server-instance, so on serverless it's a soft
+// cap that resets on cold starts. For a hard, multi-instance limit use a shared
+// store such as Upstash Redis. It still blocks the common abuse/runaway cases.
+const WINDOW_MS = 60_000
+const MAX_PER_WINDOW = 15 // burst protection (per minute)
+const DAY_MS = 24 * 60 * 60 * 1000
+const MAX_PER_DAY = 200 // daily spend cap per IP
+
+// Input bounds to keep token usage predictable.
+const MAX_MESSAGES = 16
+const MAX_CHARS_PER_MESSAGE = 4000
+
+type Bucket = { windowStart: number; windowCount: number; dayStart: number; dayCount: number }
+const buckets = new Map<string, Bucket>()
+
+function rateLimit(ip: string): { ok: boolean; retryAfter: number } {
+  const now = Date.now()
+  let b = buckets.get(ip)
+  if (!b) {
+    b = { windowStart: now, windowCount: 0, dayStart: now, dayCount: 0 }
+    buckets.set(ip, b)
+  }
+  if (now - b.windowStart >= WINDOW_MS) { b.windowStart = now; b.windowCount = 0 }
+  if (now - b.dayStart >= DAY_MS) { b.dayStart = now; b.dayCount = 0 }
+
+  if (b.dayCount >= MAX_PER_DAY) {
+    return { ok: false, retryAfter: Math.ceil((b.dayStart + DAY_MS - now) / 1000) }
+  }
+  if (b.windowCount >= MAX_PER_WINDOW) {
+    return { ok: false, retryAfter: Math.ceil((b.windowStart + WINDOW_MS - now) / 1000) }
+  }
+  b.windowCount++
+  b.dayCount++
+
+  // Opportunistic cleanup of stale buckets.
+  if (buckets.size > 5000) {
+    for (const [k, v] of buckets) if (now - v.dayStart >= DAY_MS) buckets.delete(k)
+  }
+  return { ok: true, retryAfter: 0 }
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const ip =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      'unknown'
+
+    const limit = rateLimit(ip)
+    if (!limit.ok) {
+      return new Response(
+        'Whoa — too many requests. Give it a moment and try again.',
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+      )
+    }
+
     // Instantiate inside handler so env var is guaranteed at request time
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -47,13 +102,14 @@ export async function POST(req: NextRequest) {
       return new Response('Invalid request body', { status: 400 })
     }
 
-    // Filter to only valid Anthropic roles
+    // Filter to only valid Anthropic roles, bound length, and keep the most recent turns.
     const messages = body.messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({
         role: m.role as 'user' | 'assistant',
-        content: m.content,
+        content: String(m.content ?? '').slice(0, MAX_CHARS_PER_MESSAGE),
       }))
+      .slice(-MAX_MESSAGES)
 
     if (messages.length === 0) {
       return new Response('No valid messages', { status: 400 })
