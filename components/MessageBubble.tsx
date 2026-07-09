@@ -1,10 +1,22 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ThumbsUp, ThumbsDown } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, Share2, Check } from 'lucide-react'
 import MovieCard from './MovieCard'
 import { parseResponse } from '@/lib/parseRecommendations'
 import type { Message, MovieCard as MovieCardType } from '@/lib/types'
+
+function buildShareText(content: string): string | null {
+  const cards = parseResponse(content)
+    .filter((s) => s.type === 'card')
+    .map((s) => s.content as MovieCardType)
+  if (cards.length === 0) return null
+  const lines = cards.map(
+    (c) => `• ${c.title}${c.year ? ` (${c.year})` : ''}${c.type ? ` — ${c.type}` : ''}`
+  )
+  return `My AI-Mov picks:\n${lines.join('\n')}\n\nGet your own at https://ai-mov.c2tbuilds.com`
+}
 
 function TypingIndicator() {
   return (
@@ -74,6 +86,16 @@ interface MessageBubbleProps {
 export default function MessageBubble({ message, thumbs, onThumbsRating }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const isDone = !message.isStreaming && message.role === 'assistant'
+  const [copied, setCopied] = useState(false)
+
+  const handleShare = () => {
+    const text = buildShareText(message.content)
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }
 
   return (
     <motion.div
@@ -124,6 +146,21 @@ export default function MessageBubble({ message, thumbs, onThumbsRating }: Messa
                 <ThumbsDown size={12} />
                 {thumbs === 'down' && <span>Not for me</span>}
               </button>
+
+              {buildShareText(message.content) && (
+                <button
+                  onClick={handleShare}
+                  aria-label="Copy these picks"
+                  className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs border transition-all duration-200
+                    ${copied
+                      ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
+                      : 'bg-transparent border-white/10 text-gray-600 hover:border-white/20 hover:text-gray-400'
+                    }`}
+                >
+                  {copied ? <Check size={12} /> : <Share2 size={12} />}
+                  <span>{copied ? 'Copied!' : 'Share picks'}</span>
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -1,10 +1,11 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Star, Tv, Film, BookOpen } from 'lucide-react'
+import { Star, Tv, Film, BookOpen, Bookmark } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import type { MovieCard as MovieCardType } from '@/lib/types'
+import { isSaved, toggleWatchlist } from '@/lib/watchlist'
 
 const GENRE_COLORS: Record<string, string> = {
   Action: 'bg-red-500/20 text-red-300 border-red-500/30',
@@ -88,6 +89,14 @@ export default function MovieCard({ card, delay = 0 }: MovieCardProps) {
   const gradient = getPosterGradient(card.genres)
   const initials = posterInitials(card.title)
   const [posterUrl, setPosterUrl] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setSaved(isSaved(card.title, card.year))
+    const sync = () => setSaved(isSaved(card.title, card.year))
+    window.addEventListener('aimov-watchlist-change', sync)
+    return () => window.removeEventListener('aimov-watchlist-change', sync)
+  }, [card.title, card.year])
 
   useEffect(() => {
     const params = new URLSearchParams({ title: card.title })
@@ -178,6 +187,18 @@ export default function MovieCard({ card, delay = 0 }: MovieCardProps) {
           <h3 className="text-white font-bold text-sm leading-tight flex-1 min-w-0">
             {card.title}
           </h3>
+          <button
+            onClick={() => setSaved(toggleWatchlist({ title: card.title, year: card.year, type: card.type }))}
+            aria-label={saved ? 'Remove from watchlist' : 'Save to watchlist'}
+            title={saved ? 'Remove from watchlist' : 'Save to watchlist'}
+            className={`shrink-0 rounded-md p-1 border transition-all duration-200
+              ${saved
+                ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                : 'bg-transparent border-white/10 text-gray-600 hover:text-gray-300 hover:border-white/25'
+              }`}
+          >
+            <Bookmark size={12} className={saved ? 'fill-violet-300' : ''} />
+          </button>
           {card.rating && (
             <div className="flex items-center gap-1 shrink-0 bg-yellow-500/10 border border-yellow-500/20 rounded-md px-1.5 py-0.5">
               <Star size={9} className="text-yellow-400 fill-yellow-400" />

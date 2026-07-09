@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Film, Trash2, Clock, X } from 'lucide-react'
+import { Film, Trash2, Clock, X, Bookmark } from 'lucide-react'
 import ChatWindow from './ChatWindow'
 import ChatInput from './ChatInput'
 import CategoryChips from './CategoryChips'
 import type { Message } from '@/lib/types'
+import { getWatchlist, removeFromWatchlist, type WatchlistItem } from '@/lib/watchlist'
 
 const HISTORY_KEY = 'ai-mov-history'
 const MAX_HISTORY = 8
@@ -41,11 +42,17 @@ export default function ChatInterface() {
   })
   const [history, setHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
+  const [showWatchlist, setShowWatchlist] = useState(false)
 
   const hasMessages = messages.length > 0
 
   useEffect(() => {
     setHistory(loadHistory())
+    setWatchlist(getWatchlist())
+    const sync = () => setWatchlist(getWatchlist())
+    window.addEventListener('aimov-watchlist-change', sync)
+    return () => window.removeEventListener('aimov-watchlist-change', sync)
   }, [])
 
   useEffect(() => {
@@ -193,6 +200,21 @@ export default function ChatInterface() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Watchlist button */}
+          {watchlist.length > 0 && (
+            <button
+              onClick={() => { setShowWatchlist((s) => !s); setShowHistory(false) }}
+              className={`flex items-center gap-1.5 text-xs transition-colors duration-200 px-2 py-1 rounded-lg
+                ${showWatchlist
+                  ? 'text-violet-300 bg-violet-500/10 hover:bg-violet-500/20'
+                  : 'text-gray-600 hover:text-gray-300 hover:bg-white/5'
+                }`}
+            >
+              <Bookmark size={13} />
+              Watchlist ({watchlist.length})
+            </button>
+          )}
+
           {/* History button */}
           {history.length > 0 && (
             <button
@@ -259,6 +281,48 @@ export default function ChatInterface() {
                   </div>
                 ))}
               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Watchlist dropdown */}
+      <AnimatePresence>
+        {showWatchlist && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="shrink-0 bg-[#0f0f0f] border-b border-white/5 px-4 py-3 z-20"
+          >
+            <div className="max-w-2xl mx-auto">
+              <p className="text-gray-600 text-[10px] font-mono uppercase tracking-widest mb-2">
+                Watchlist
+              </p>
+              {watchlist.length === 0 ? (
+                <p className="text-gray-600 text-sm py-1">Nothing saved yet — tap the bookmark on any pick.</p>
+              ) : (
+                <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
+                  {watchlist.map((item) => (
+                    <div key={`${item.title}-${item.year}`} className="flex items-center gap-2 group">
+                      <span className="flex-1 text-left text-sm text-gray-300 py-1 px-2 truncate">
+                        {item.title}
+                        <span className="text-gray-600 ml-2 text-xs">
+                          {item.year}{item.type ? ` · ${item.type}` : ''}
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => removeFromWatchlist(item.title, item.year)}
+                        aria-label={`Remove ${item.title}`}
+                        className="text-gray-700 hover:text-gray-400 transition-all duration-150 p-1"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

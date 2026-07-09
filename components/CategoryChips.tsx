@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowRight, ChevronDown, ChevronUp } from 'lucide-react'
 
 const QUICK_PICKS_DEFAULT_VISIBLE = 6
@@ -135,14 +135,19 @@ export default function CategoryChips({
 }: CategoryChipsProps) {
   const [quickPicksExpanded, setQuickPicksExpanded] = useState(false)
 
-  const CHIP_GROUPS = useMemo(() => {
-    return RAW_CHIP_GROUPS.map((group) => ({
-      ...group,
-      chips:
-        group.label === 'Streaming On' || group.label === 'Quick Picks'
-          ? group.chips
-          : shuffleArray(group.chips),
-    }))
+  // Shuffle only after mount — shuffling during render caused an SSR/client
+  // hydration mismatch (React errors #418/#423/#425 in production).
+  const [CHIP_GROUPS, setChipGroups] = useState(RAW_CHIP_GROUPS)
+  useEffect(() => {
+    setChipGroups(
+      RAW_CHIP_GROUPS.map((group) => ({
+        ...group,
+        chips:
+          group.label === 'Streaming On' || group.label === 'Quick Picks'
+            ? group.chips
+            : shuffleArray(group.chips),
+      }))
+    )
   }, [])
 
   if (compact) {
