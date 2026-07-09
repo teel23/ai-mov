@@ -70,8 +70,9 @@ function rateLimit(ip: string): { ok: boolean; retryAfter: number } {
   b.dayCount++
 
   // Opportunistic cleanup of stale buckets.
+  // (forEach instead of for..of — Map iteration needs downlevelIteration under this tsconfig target)
   if (buckets.size > 5000) {
-    for (const [k, v] of buckets) if (now - v.dayStart >= DAY_MS) buckets.delete(k)
+    buckets.forEach((v, k) => { if (now - v.dayStart >= DAY_MS) buckets.delete(k) })
   }
   return { ok: true, retryAfter: 0 }
 }
